@@ -15,3 +15,11 @@ coming from this module. It includes the following functions:
 3. two_stage_g_opt
 4. two_step_g_acq (WE INCLUDE THIS HERE BECAUSE IT DEPENDS ON moment_matching_update AND g_opt, THEMATICALLY THIS
 SHOULD NOT BE HERE)
+
+The module "Experiment_Framework" has functions which are used in conducting numerical experiments. These functions include:
+1. product_diff_list
+2. question_extractor
+3. enum_two_step
+4. enum_two_step_opt
+5. quantile_test_enum_data
+6. MSE_det_test 
