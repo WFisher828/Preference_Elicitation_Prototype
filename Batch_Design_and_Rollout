@@ -1,0 +1,461 @@
+#This module 'Batch_Design_and_Rollout' includes functions to construct a batch design as well as
+#doing the rollout method.
+
+#Functions in this module include:
+
+#orthogonal_constraint_feas
+#batch_design_delta_penalty #THIS WILL BE PREFERRED OVER batch_design_delta_refine
+#batch_design_delta_refine
+#question_selection_prob
+#rollout
+#monte_carlo_rollout
+#rollout_with_batch_design_acquisition
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+***********************************************************************************************************************************************************************
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+import gurobipy as gp
+from gurobipy import GRB
+import numpy as np
+import sklearn.datasets
+import scipy.integrate
+import scipy.stats #import bernoulli
+import math
+
+
+import sys
+sys.path.append(r'C:\Users\wsfishe\Desktop\PreferenceElicitationCode')
+from Baseline_Functions_Definitions import z_expectation_variance, g_fun, g_fun_linear_regression
+from Questionnaire_Procedure import moment_matching_update, g_opt
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+***********************************************************************************************************************************************************************
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#This function is used to check the feasibility of the orthogonality constraints used in the batch design for a given 
+#tolerance delta. That is, it checks the feasibility of -delta <= q_i * Sig * q_j <= delta for i not equal to j
+def orthogonal_constraint_feas(mu,Sig,delta,batch_size,t_lim=30):
+    #mu: expectation of prior on beta
+    #Sig: Covariance matrix of prior on beta
+    #delta: This is a parameter in the batch-design model that is used to control the level of orthogonality of 
+    #the various questions in the batch design.
+    #batch_size: the number of questions we want to return in our batch design. This should be less or equal to the number
+    #of attributes
+    #t_lim: a time limit on the running time of the optimization procedure. Not sure if t=100 is sufficient at the moment.
+    
+    #This is the number of attributes for the products
+    n = len(Sig[0])
+    
+    m = gp.Model("mip1")
+    m.setParam('Timelimit',t_lim)
+    
+    #Set up the x_i and y_i, i = 1,...,batchsize
+    X = m.addMVar((batch_size,n),vtype = GRB.BINARY)
+    Y = m.addMVar((batch_size,n),vtype = GRB.BINARY)
+    
+    #Set up the objective function. We use an objective function of 0 just to check the feasibility of the orthogonality
+    #constraints
+    m.setObjective(0,GRB.MINIMIZE)
+    
+    #Set up the constraints that force the products in question i to be different
+    for i in range(batch_size):
+        m.addConstr(X[i]@X[i] - X[i]@Y[i] - Y[i]@X[i] + Y[i]@Y[i] >= 1)
+        m.addConstr(mu@X[i] - mu@Y[i] >= 0)
+    
+    #Set up the Sigma-orthogonality constraint for all questions i and j, i not equal to j.
+    for i in range(batch_size):
+        for j in range(i+1,batch_size):
+            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] - delta <= 0)
+            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] + delta >= 0)
+            
+    m.optimize()
+    
+    feasibility = True
+    
+    #If the time limit was exceeded for finding a feasible solution, we assume the problem is infeasible.
+    if m.Status == GRB.TIME_LIMIT:
+        feasibility = False
+        
+    return feasibility
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+***********************************************************************************************************************************************************************
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#This function constructs a batch design of size k <= (number of attributes) where we enforce mutual 
+#Sigma-orthogonality between the k questions. The orthogonality condition makes it so that the D-error minimization
+#can be written as a product of g (one-step lookahead) functions. For this function, delta is considered as a continuous
+#variable and is penalized in the objective function.
+
+def batch_design_delta_penalty(mu,Sig,batch_size,mu_log_coeff,Sig_log_coeff,M=100,t_lim=100):
+    #mu: expectation of prior on beta
+    #Sig: Covariance matrix of prior on beta
+    #batch_size: the number of questions we want to return in our batch design. This should be less or equal to the number
+    #of attributes
+    #mu_log_coeff: the estimated coefficient c_1 that goes with m in the linear model log(g) = c_1*m + c_2*v
+    #Sig_log_coeff: the estimated coefficient c_2 that goes with v in the linear model log(g) = c_1m + c_2*v
+    #M: this is a parameter which will be used as a constant to penalize the orthogonality constraint term delta.
+    #t_lim: a time limit on the running time of the optimization procedure. Not sure if t=100 is sufficient at the moment.
+    
+    #This is the number of attributes for the products
+    n = len(Sig[0])
+    
+    #These are terms corresponding to the linear and quadratic terms in the objective function.
+    mu_s = mu_log_coeff*mu
+    Sig_s = Sig_log_coeff*Sig
+    
+    m = gp.Model("mip1")
+    m.setParam('Timelimit',t_lim)
+    
+    #Set up the x_i and y_i, i = 1,...,batchsize
+    X = m.addMVar((batch_size,n),vtype = GRB.BINARY)
+    Y = m.addMVar((batch_size,n),vtype = GRB.BINARY)
+    delta = m.addVar(lb=0.0, vtype = GRB.CONTINUOUS)
+    
+    #Set up the objective function, which is the sum of (batch_size) linearized g functions.
+    m.setObjective(sum([mu_s@X[i] - mu_s@Y[i] + X[i]@Sig_s@X[i] -X[i]@(2.0*Sig_s)@Y[i] + 
+                   Y[i]@Sig_s@Y[i]  for i in range(batch_size)]) + M*delta,GRB.MINIMIZE)
+    
+    #Set up the constraints that force the products in question i to be different, as well as forcing the symmetry
+    #exploitation condition.
+    for i in range(batch_size):
+        m.addConstr(X[i]@X[i] - X[i]@Y[i] - Y[i]@X[i] + Y[i]@Y[i] >= 1)
+        m.addConstr(mu@X[i] - mu@Y[i] >= 0)
+    
+    #Set up the Sigma-orthogonality constraint for all questions i and j, i not equal to j.
+    for i in range(batch_size):
+        for j in range(i+1,batch_size):
+            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] - delta <= 0)
+            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] + delta >= 0)
+    
+    m.optimize()
+    
+    #This will be the list of products
+    Q = [ [] for i in range(batch_size)]
+    
+    for i in range(batch_size):
+        Q[i].append(X[i].X)
+        Q[i].append(Y[i].X)
+        
+    return[Q,delta.X]
+    
+ 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+***********************************************************************************************************************************************************************
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#This function constructs a batch design of size k <= (number of attributes) where we enforce mutual 
+#Sigma-orthogonality between the k questions. The orthogonality condition makes it so that the D-error minimization
+#can be written as a product of g (one-step lookahead) functions. In this function, we are given a initial delta which is 
+#assumed to be feasible and refine this delta to make it smaller using the function orthogonal_constraint_feas
+
+def batch_design_delta_refine(mu,Sig,batch_size,mu_log_coeff,Sig_log_coeff,start_delta,t_lim=150):
+    #mu: expectation of prior on beta
+    #Sig: Covariance matrix of prior on beta
+    #batch_size: the number of questions we want to return in our batch design. This should be less or equal to the number
+    #of attributes
+    #mu_log_coeff: the estimated coefficient c_1 that goes with m in the linear model log(g) = c_1*m + c_2*v
+    #Sig_log_coeff: the estimated coefficient c_2 that goes with v in the linear model log(g) = c_1m + c_2*v
+    #start_delta: this is the delta value that we start the orthogonality constraint with. Before the optimization procedure,
+    #we attempt to find a smaller value of delta so that the orthogonality constraint is tighter.
+    #M: this is a parameter which will be used as a constant to penalize the orthogonality constraint term delta.
+    #t_lim: a time limit on the running time of the optimization procedure. Not sure if t=100 is sufficient at the moment.
+    
+    #This is the number of attributes for the products
+    n = len(Sig[0])
+    
+    #These are terms corresponding to the linear and quadratic terms in the objective function.
+    mu_s = mu_log_coeff*mu
+    Sig_s = Sig_log_coeff*Sig
+    
+    m = gp.Model("mip1")
+    m.setParam('Timelimit',t_lim)
+    
+    #Set up the x_i and y_i, i = 1,...,batchsize
+    X = m.addMVar((batch_size,n),vtype = GRB.BINARY)
+    Y = m.addMVar((batch_size,n),vtype = GRB.BINARY)
+    
+    #Find a small value of delta so that the problem is feasible. ASSUME we start with a feasible delta (so we pick delta
+    #to be large enough)
+    delta = start_delta
+    feasible = True
+    while feasible:
+        delta = delta/2.0
+        feasible = orthogonal_constraint_feas(mu,Sig,delta,batch_size,t_lim=15)
+        if not feasible:
+            delta = 2.0*delta
+        print(delta)
+        
+
+    #Set up the objective function, which is the sum of (batch_size) linearized g functions.
+    m.setObjective(sum([mu_s@X[i] - mu_s@Y[i] + X[i]@Sig_s@X[i] -X[i]@(2.0*Sig_s)@Y[i] + 
+                   Y[i]@Sig_s@Y[i]  for i in range(batch_size)]),GRB.MINIMIZE)
+    
+    #Set up the constraints that force the products in question i to be different, as well as forcing the symmetry
+    #exploitation condition.
+    for i in range(batch_size):
+        m.addConstr(X[i]@X[i] - X[i]@Y[i] - Y[i]@X[i] + Y[i]@Y[i] >= 1)
+        m.addConstr(mu@X[i] - mu@Y[i] >= 0)
+    
+    #Set up the Sigma-orthogonality constraint for all questions i and j, i not equal to j.
+    for i in range(batch_size):
+        for j in range(i+1,batch_size):
+            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] - delta <= 0)
+            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] + delta >= 0)
+    
+    m.optimize()
+    
+    #This will be the list of products
+    Q = [ [] for i in range(batch_size)]
+    
+    for i in range(batch_size):
+        Q[i].append(X[i].X)
+        Q[i].append(Y[i].X)
+        
+    return[Q,delta]
+    
+   
+ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+***********************************************************************************************************************************************************************
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#This function is used for calculating the probability of a user picking x over y.
+def question_selection_prob(mu,Sig,x,y):
+    #mu is mean parameter of the prior
+    #Sig is the covariance matrix of the prior
+    #x is the "preferred" product ( i.e, we will calculate P(x>y) )
+    #y is the secondary product
+    integ_bound = 30.0
+    
+    mu,Sig = np.array(mu),np.array(Sig)
+    x,y = np.array(x),np.array(y)
+    
+    #Set up function to calculate the probability of choosing x over y
+    m = np.dot(mu,x-y)
+    v = np.dot(x-y,np.dot(Sig,x-y))
+    fun1 = lambda z: ((1 + math.e**(-m - math.sqrt(v)*z))**(-1))*(math.e**((-z**2)/2))/math.sqrt(2*math.pi)
+    
+    probability = scipy.integrate.quad(fun1, -integ_bound, integ_bound)[0]
+    
+    return probability
+
+ ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+***********************************************************************************************************************************************************************
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#This code is to perform full enumerative rollout 
+
+def rollout(mu,Sig,x,y,rollout_length,mu_log_coeff,Sig_log_coeff):
+    #mu: This is the initial mean parameter that we start with
+    #Sig: This is the initial covariance matrix we start with
+    #x,y: These are the two products (question) that we start the rollout process with
+    #rollout_length: This is how far ahead we wish to "rollout" the initial question (x,y) under the one
+    #step lookahead base policy
+    #mu_log_coeff: the estimated coefficient c_1 that goes with m in the linear model log(g) = c_1*m + c_2*v
+    #Sig_log_coeff: the estimated coefficient c_2 that goes with v in the linear model log(g) = c_1m + c_2*v
+    #trimming_parameter: This is the probability of success parameter we use in the bernoulli random variable that is used
+    #to determine whether we perform trimming at the kth level in the trajectory tree.
+    
+    #Calculate the probability of user picking x over y and y over x
+    prob_x = question_selection_prob(mu,Sig,x,y)
+    prob_y = 1.0 - prob_x
+    
+    #Update mu and Sig depending on if the user picks x or y.
+    mu_x,Sig_x = moment_matching_update(x,y,mu,Sig)
+    mu_y,Sig_y = moment_matching_update(y,x,mu,Sig)
+    
+    #Save updated parameters and probabilities
+    N_x = [mu_x,Sig_x,prob_x]
+    N_y = [mu_y,Sig_y,prob_y]
+    
+    N = [N_x,N_y]
+    
+    for i in range(rollout_length):
+        #Instantiate a list that will hold nodes at the (i+1)th level after N = [N_x,N_y]
+        Node_list = []
+        
+        for node in N:
+            
+            #Extract mean, covariance matrix, and (accumulated) probability.
+            mu_n = node[0]
+            Sig_n = node[1]
+            prob_n = node[2]
+            
+            #Based off of the mean and covariance matrix, find the optimal one-step query, (x_n,y_n)
+            x_n,y_n = g_opt(mu_n,Sig_n,mu_log_coeff,Sig_log_coeff)[1:] 
+            
+            #Calculate the probability of the user choosing xn or yn
+            prob_xn = question_selection_prob(mu_n,Sig_n,x_n,y_n)
+            prob_yn = 1.0 - prob_xn
+            
+            
+            #Calculate the accumulated probability up to this node
+            accumulate_prob_xn = prob_xn * prob_n
+            accumulate_prob_yn = prob_yn * prob_n
+
+            #Perform a moment matching update to get new parameters mu and Sig for both cases when the user
+            #prefers x_n and y_n.
+            mu_nx,Sig_nx = moment_matching_update(x_n,y_n,mu_n,Sig_n)
+            mu_ny,Sig_ny = moment_matching_update(y_n,x_n,mu_n,Sig_n)
+
+            #Store the parameters and accumulated probability in nodes.
+            N_xn = [mu_nx,Sig_nx,accumulate_prob_xn]
+            N_yn = [mu_ny,Sig_ny,accumulate_prob_yn]
+
+            Node_list.append(N_xn)
+            Node_list.append(N_yn)
+
+                
+        N = Node_list
+        
+    weighted_det_sum = sum(np.linalg.det(node[1])*node[2] for node in N)
+    
+    return weighted_det_sum
+    
+    
+  ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+***********************************************************************************************************************************************************************
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#This code is used to perform rollout using monte-carlo method
+
+def monte_carlo_rollout(mu,Sig,x,y,rollout_length,mu_log_coeff,Sig_log_coeff,sample_budget):
+    #mu: This is the initial mean parameter that we start with
+    #Sig: This is the initial covariance matrix we start with
+    #x,y: These are the two products (question) that we start the rollout process with
+    #rollout_length: This is how far ahead we wish to "rollout" the initial question (x,y) under the one
+    #step lookahead base policy
+    #mu_log_coeff: The estimated coefficient c_1 that goes with m in the linear model log(g) = c_1*m + c_2*v
+    #Sig_log_coeff: The estimated coefficient c_2 that goes with v in the linear model log(g) = c_1m + c_2*v
+    #sample_budget: This is the number of trajectories that we want to use.
+    
+    #Calculate the probability of user picking x over y and y over x
+    Sig_list = []
+    
+    prob_x = question_selection_prob(mu,Sig,x,y)
+    prob_y = 1.0 - prob_x
+    
+    #Look at which product is preferred
+    if prob_x >= prob_y:
+        prefer_prob = prob_x 
+        prefer_product = x
+        not_prefer_product = y
+    else:
+        prefer_prob = prob_y 
+        prefer_product = y
+        not_prefer_product = x
+    
+    #Sample 'sample_budget' number of trajectories.
+    for i in range(sample_budget):
+        
+        #Create a bernoulli random variable with probability parameter equal to the probability of the product having
+        #the higher probability of selection between x and y.
+        path_selector = scipy.stats.bernoulli.rvs(prefer_prob)
+        
+        #Perform moment matching according to the value of the bernoulli random variable, path_selector. If path_selector
+        #is 1.0, we will go down the branch with higher probability. If path_selector is 0.0, we will go down the branch 
+        #with lower probability.
+        if path_selector == 1.0:
+            mu_n,Sig_n = moment_matching_update(prefer_product,not_prefer_product,mu,Sig)
+        else:
+            mu_n,Sig_n = moment_matching_update(not_prefer_product,prefer_product,mu,Sig)
+        
+        #We start the rollout process on initial question (x,y)
+        for j in range(rollout_length):
+            
+            #Solve the one-step lookahead problem to get the next question pair
+            x_n,y_n = g_opt(mu_n,Sig_n,mu_log_coeff,Sig_log_coeff)[1:] 
+            
+            #Calculate the probability of x_n and y_n given mu_n and Sig_n
+            prob_xn = question_selection_prob(mu_n,Sig_n,x_n,y_n)
+            prob_yn = 1.0 - prob_xn
+            
+            #Check which of x_n and y_n has a higher probability. 
+            if prob_xn >= prob_yn:
+                prefer_prob_n = prob_xn 
+                prefer_product_n = x_n
+                not_prefer_product_n = y_n
+            else:
+                prefer_prob_n = prob_yn 
+                prefer_product_n = y_n
+                not_prefer_product_n = x_n
+            
+            #Create a bernoulli random variable with parameter prefer_prob_n.
+            path_selector_n = scipy.stats.bernoulli.rvs(prefer_prob_n)
+            
+            #Perform moment matching according to the value of the bernoulli random variable, path_selector_n. 
+            #If path_selector_n
+            #is 1.0, we will go down the branch with higher probability. If path_selector is 0.0, we will go down the branch 
+            #with lower probability.
+            if path_selector_n == 1.0:
+                mu_n,Sig_n = moment_matching_update(prefer_product_n,not_prefer_product_n,mu_n,Sig_n)
+            else:
+                mu_n,Sig_n = moment_matching_update(not_prefer_product_n,prefer_product_n,mu_n,Sig_n)
+                
+        
+        #After we finish one trajectory, we append the resulting covariance matrix to a list.
+        Sig_list.append(Sig_n)
+        
+    
+    #Calculate an estimate for the determinant. We use the sample average of the determinants of the covariances coming from
+    #different trajectories.
+    determinant_estimate = (1/sample_budget)*sum(np.linalg.det(S) for S in Sig_list)
+    
+    return determinant_estimate
+    
+  
+    ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+***********************************************************************************************************************************************************************
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#This function is used for constructing a batch design and performing rollout on this batch design, returning the question
+#amongst the batch that results in the lowest average determinant value
+
+def rollout_with_batch_design_acquisition(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,rollout_length,MC_budget,include_one_step = False):
+    #mu: This is the initial mean parameter that we start with
+    #Sig: This is the initial covariance matrix we start with
+    #mu_log_coeff: The estimated coefficient c_1 that goes with m in the linear model log(g) = c_1*m + c_2*v
+    #Sig_log_coeff: The estimated coefficient c_2 that goes with v in the linear model log(g) = c_1m + c_2*v
+    #batch_size: the number of questions we want to return in our batch design. This should be less or equal to the number
+    #of attributes
+    #rollout_length: This is how far ahead we wish to "rollout" the initial question (x,y) under the one
+    #step lookahead base policy
+    #MC_budget: This is the budget we allow for monte carlo method of rollout. At this point in time, we will use MC if
+    #rollout_length is greater than 8.
+    #include_one_step: This determines whether we want to include the one-step optimal question within our batch. This can
+    #help ensure that rollout performs at least as well as one-step look ahead. Default value is False.
+    
+    #Construct the batch based off of mu,Sig, and batch_size
+    batch = batch_design_delta_penalty(mu,Sig,batch_size,mu_log_coeff,Sig_log_coeff)[0]
+    
+    #If desired, include the one-step look ahead optimal question within this batch to help ensure performance
+    #is at least as good as one-step look ahead
+    if include_one_step:
+        [one_step_x,one_step_y] = g_opt(mu,Sig,mu_log_coeff,Sig_log_coeff)[1:]
+        batch.append([one_step_x,one_step_y])
+    
+    print(batch)
+    #For each question in the batch, perform rollout of length rollout_length and save the average of the determinant
+    #values for each question. If rollout_length is greater than or equal to 8, use MC method instead, 
+    #as it seems enumeration becomes slow after this point.
+    cov_avg_det_values = []
+    if rollout_length >= 8:
+        for question in batch:
+            x = question[0]
+            y = question[1]
+            avg_det_value = monte_carlo_rollout(mu,Sig,x,y,rollout_length,mu_log_coeff,Sig_log_coeff,MC_budget)
+            cov_avg_det_values.append(avg_det_value)
+    else:
+        for question in batch:
+            x = question[0]
+            y = question[1]
+            avg_det_value = rollout(mu,Sig,x,y,rollout_length,mu_log_coeff,Sig_log_coeff)
+            cov_avg_det_values.append(avg_det_value)
+
+    #Pick the question with the lowest average determinant value. Call it opt_question
+    print(cov_avg_det_values)
+    min_index = np.argmin(np.array(cov_avg_det_values))
+    opt_question = batch[min_index]
+    
+    return opt_question
