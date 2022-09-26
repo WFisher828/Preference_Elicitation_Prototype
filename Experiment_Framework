@@ -507,4 +507,4 @@ def new_mse_det_experiment(init_mu, init_Sig, true_partworths, rep_per_partworth
                     hits = hits + 1
             HITRATE[u].append(hits/hitrate_total_num_of_questions)
     
-    return[MSE,DET]
+    return[MSE,DET,HITRATE]
