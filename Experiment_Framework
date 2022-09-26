@@ -427,7 +427,7 @@ def MSE_det_test(attr_num,mu_scale,Sig_scale,num_rep,num_beta,noise_par,mu_log_c
 #of quality. In this function, we only use one acquisition method at a time (compare with MSE_det_test).
 
 def new_mse_det_experiment(init_mu, init_Sig, true_partworths, rep_per_partworth, num_questions, mu_log_coeff, Sig_log_coeff,
-                          noise_par, Method = 0, batch_size = 0, MC_budget = 0, include_one_step = False):
+                          noise_par, hitrate_question_list, Method = 0, batch_size = 0, MC_budget = 0, include_one_step = False):
     #init_mu: This is the initial estimate on the partworths
     #init_Sig: This is the initial covariance matrix on the partworths
     #true_partworths: These are used to make selection in the product selection stage (a list/set of partworths)
@@ -436,6 +436,8 @@ def new_mse_det_experiment(init_mu, init_Sig, true_partworths, rep_per_partworth
     #mu_log_coeff; Sig_log_coeff: These are the coefficients in the optimization model for the linearized objective function
     #noise_par: This is a parameter which is used to increase the weight of the individuals' true partworth when making decision
     #between x and y. The higher this weight is, the less effect the gumbel random variable has on user choice.
+    #hitrate_question_list: This is a list of questions which will be used to calculate the hitrate, which is the
+    #proportion of times that an estimated partworth matches the product selection of a true underlying partworth.
     #Method: 0 - One step look ahead
     #        1 - Rollout with batch design   <------ CAN ADD MORE METHODS IF NEEDED
     #batch_size: Used to select batch size if we use rollout
@@ -497,5 +499,12 @@ def new_mse_det_experiment(init_mu, init_Sig, true_partworths, rep_per_partworth
                 MSE[u][j].append(np.square(np.subtract(true_partworths[u]/np.linalg.norm(true_partworths[u],ord = 2),
                                                             mu/np.linalg.norm(mu, ord = 2))).mean())
                 DET[u][j].append(np.linalg.det(Sig))
+                
+            #Calculate hitrate for this replication
+            hits = 0
+            for q in hitrate_question_list:
+                if np.dot(true_partworths[u],q)*np.dot(mu,q)>=0:
+                    hits = hits + 1
+            HITRATE[u].append(hits/hitrate_total_num_of_questions)
     
     return[MSE,DET]
