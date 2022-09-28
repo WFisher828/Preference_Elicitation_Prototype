@@ -426,7 +426,7 @@ def MSE_det_test(attr_num,mu_scale,Sig_scale,num_rep,num_beta,noise_par,mu_log_c
 #This function is used to compare different methods in a sequential fashion using MSE and determinant as a measurement 
 #of quality. In this function, we only use one acquisition method at a time (compare with MSE_det_test).
 
-def new_mse_det_experiment(init_mu, init_Sig, true_partworths, rep_per_partworth, num_questions, mu_log_coeff, Sig_log_coeff,
+def new_mse_det_hitrate_experiment(init_mu, init_Sig, true_partworths, rep_per_partworth, num_questions, mu_log_coeff, Sig_log_coeff,
                           noise_par, hitrate_question_list, Method = 0, batch_size = 0, MC_budget = 0, include_one_step = False):
     #init_mu: This is the initial estimate on the partworths
     #init_Sig: This is the initial covariance matrix on the partworths
