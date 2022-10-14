@@ -445,17 +445,39 @@ def new_mse_det_hitrate_experiment(init_mu, init_Sig, true_partworths, rep_per_p
     #include_one_step: This determines whether we want to include the one-step optimal question within our batch. This can
     #help ensure that rollout performs at least as well as one-step look ahead. Default value is False.
     
-    #Construct a list for storing MSE information. For each of the baseline partworths, we create a list holding
-    #(num_questions) lists, where each of the (num_questions) lists holds the MSE values for all replications
+    #Construct lists for storing normalized MSE, determinant, hitrate, and MSE information. 
+    #For each of the baseline partworths, we create a list holding
+    #(num_questions) lists, where each of the (num_questions) lists holds the MSE and determinant values for all replications
     #after the first, second,...,nth question
     
     num_true_partworth = len(true_partworths)
     
-    MSE = [[[] for j in range(num_questions)] for u in range(num_true_partworth)]
+    hitrate_total_num_of_questions = len(hitrate_question_list)
+    
+    #Construct the expected preferred product selection for each true partworth. This will be used when we calculate the probability
+    #of correct selection
+    x_trueselection = [[] for u in range(num_true_partworth)]
+    attributes_num = len(init_mu)
+    for u in range(num_true_partworth):
+        x_trueselection[u].append(np.array([1.0 if partworth_component>=0.0 else 0.0 for partworth_component in 
+                                           true_partworths[u]]))
+    
+    #Set up lists to hold normalized MSE, determinant, MSE, and hitrate information. For now, we will only calculate hitrate at the end
+    #of the questionnaire
+    
+    MSE_normalized = [[[] for j in range(num_questions)] for u in range(num_true_partworth)]
     
     DET = [[[] for j in range(num_questions)] for u in range(num_true_partworth)]
     
+    MSE = [[[] for j in range(num_questions)] for u in range(num_true_partworth)]
+    
+    HITRATE = [[] for u in range(num_true_partworth)]
+    
+    PROB_CORRECT_SEL = []
+    
     for u in range(num_true_partworth):
+        #create a variable which will store the number of correct selections.
+        correct_sel = 0
         for i in range(rep_per_partworth):
             #Instantiate mu and Sig with the initial parameters init_mu and init_Sig. These act as prior parameters for all
             #the partworths
@@ -495,16 +517,29 @@ def new_mse_det_hitrate_experiment(init_mu, init_Sig, true_partworths, rep_per_p
                 [mu, Sig] = moment_matching_update(x,y,mu,Sig)
                 
                 #Add the MSE between the true partworth and estimator at question j to a list, and add the determinant of
-                #the covariance matrix at question j into a list
-                MSE[u][j].append(np.square(np.subtract(true_partworths[u]/np.linalg.norm(true_partworths[u],ord = 2),
+                #the covariance matrix at question j into a list. Also add the regular MSE.
+                MSE_normalized[u][j].append(np.square(np.subtract(true_partworths[u]/np.linalg.norm(true_partworths[u],ord = 2),
                                                             mu/np.linalg.norm(mu, ord = 2))).mean())
                 DET[u][j].append(np.linalg.det(Sig))
+                MSE[u][j].append(np.square(np.subtract(true_partworths[u],
+                                                            mu)).mean())
                 
-            #Calculate hitrate for this replication
+            #Calculate hitrate for this replication. Given a set of questions of length K, we compare how well the final 
+            #estimator performs in terms of correctly selecting the preferred profile for each question. The estimator
+            #makes a correct selection if its selection matches that of the true partworth (selection is absent of gumble noise)
             hits = 0
             for q in hitrate_question_list:
                 if np.dot(true_partworths[u],q)*np.dot(mu,q)>=0:
                     hits = hits + 1
             HITRATE[u].append(hits/hitrate_total_num_of_questions)
+            
+            #Calculate whether we have correct selection in this replication for estimator mu
+            x_mu = np.array([1.0 if mu_component>=0.0 else 0.0 for mu_component in 
+                                           mu])
+            if np.dot(x_trueselection[u]-x_mu,x_trueselection[u]-x_mu) == 0.0:
+                correct_sel = correct_sel + 1
+            
+        #Calculate the probability of correct selection for the current true partworth
+        PROB_CORRECT_SEL.append(correct_sel/rep_per_partworth)
     
-    return[MSE,DET,HITRATE]
+    return[MSE_normalized,DET,HITRATE,MSE,PROB_CORRECT_SEL]
