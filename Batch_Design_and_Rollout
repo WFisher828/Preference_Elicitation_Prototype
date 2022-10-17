@@ -27,7 +27,7 @@ import math
 import sys
 sys.path.append(r'C:\Users\wsfishe\Desktop\PreferenceElicitationCode')
 from Baseline_Functions_Definitions import z_expectation_variance, g_fun, g_fun_linear_regression
-from Questionnaire_Procedure import moment_matching_update, g_opt
+from Questionnaire_Procedure import moment_matching_update, g_opt, two_step_g_acq
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ***********************************************************************************************************************************************************************
