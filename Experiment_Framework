@@ -459,8 +459,8 @@ def new_mse_det_hitrate_experiment(init_mu, init_Sig, true_partworths, rep_per_p
     x_trueselection = [[] for u in range(num_true_partworth)]
     attributes_num = len(init_mu)
     for u in range(num_true_partworth):
-        x_trueselection[u].append(np.array([1.0 if partworth_component>=0.0 else 0.0 for partworth_component in 
-                                           true_partworths[u]]))
+        x_trueselection[u] = np.array([1.0 if partworth_component>=0.0 else 0.0 for partworth_component in 
+                                           true_partworths[u]])
     
     #Set up lists to hold normalized MSE, determinant, MSE, and hitrate information. For now, we will only calculate hitrate at the end
     #of the questionnaire
