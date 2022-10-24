@@ -66,8 +66,8 @@ def orthogonal_constraint_feas(mu,Sig,delta,batch_size,t_lim=30):
     #Set up the Sigma-orthogonality constraint for all questions i and j, i not equal to j.
     for i in range(batch_size):
         for j in range(i+1,batch_size):
-            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] - delta <= 0)
-            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] + delta >= 0)
+            m.addConstr(X[i]@Sig@X[j] - X[i]@Sig@Y[j] - Y[i]@Sig@X[j] + Y[i]@Sig@Y[j] - delta <= 0)
+            m.addConstr(X[i]@Sig@X[j] - X[i]@Sig@Y[j] - Y[i]@Sig@X[j] + Y[i]@Sig@Y[j] + delta >= 0)
             
     m.optimize()
     
@@ -126,8 +126,8 @@ def batch_design_delta_penalty(mu,Sig,batch_size,mu_log_coeff,Sig_log_coeff,M=10
     #Set up the Sigma-orthogonality constraint for all questions i and j, i not equal to j.
     for i in range(batch_size):
         for j in range(i+1,batch_size):
-            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] - delta <= 0)
-            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] + delta >= 0)
+            m.addConstr(X[i]@Sig@X[j] - X[i]@Sig@Y[j] - Y[i]@Sig@X[j] + Y[i]@Sig@Y[j] - delta <= 0)
+            m.addConstr(X[i]@Sig@X[j] - X[i]@Sig@Y[j] - Y[i]@Sig@X[j] + Y[i]@Sig@Y[j] + delta >= 0)
     
     m.optimize()
     
@@ -201,8 +201,8 @@ def batch_design_delta_refine(mu,Sig,batch_size,mu_log_coeff,Sig_log_coeff,start
     #Set up the Sigma-orthogonality constraint for all questions i and j, i not equal to j.
     for i in range(batch_size):
         for j in range(i+1,batch_size):
-            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] - delta <= 0)
-            m.addConstr(X[i]@Sig@X[j] -X[i]@(2.0*Sig)@Y[j] + Y[i]@Sig@Y[j] + delta >= 0)
+            m.addConstr(X[i]@Sig@X[j] - X[i]@Sig@Y[j] - Y[i]@Sig@X[j]] + Y[i]@Sig@Y[j] - delta <= 0)
+            m.addConstr(X[i]@Sig@X[j] - X[i]@Sig@Y[j] - Y[i]@Sig@X[j] + Y[i]@Sig@Y[j] + delta >= 0)
     
     m.optimize()
     
