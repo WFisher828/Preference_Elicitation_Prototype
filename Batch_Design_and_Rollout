@@ -412,7 +412,7 @@ def monte_carlo_rollout(mu,Sig,x,y,rollout_length,mu_log_coeff,Sig_log_coeff,sam
 #This function is used for constructing a batch design and performing rollout on this batch design, returning the question
 #amongst the batch that results in the lowest average determinant value
 
-def rollout_with_batch_design_acquisition(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,rollout_length,MC_budget,include_one_step = False):
+def rollout_with_batch_design_acquisition(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,rollout_length,MC_budget,include_one_step = False,penalty_term = 100):
     #mu: This is the initial mean parameter that we start with
     #Sig: This is the initial covariance matrix we start with
     #mu_log_coeff: The estimated coefficient c_1 that goes with m in the linear model log(g) = c_1*m + c_2*v
@@ -425,9 +425,11 @@ def rollout_with_batch_design_acquisition(mu,Sig,mu_log_coeff,Sig_log_coeff,batc
     #rollout_length is greater than 8.
     #include_one_step: This determines whether we want to include the one-step optimal question within our batch. This can
     #help ensure that rollout performs at least as well as one-step look ahead. Default value is False.
+    #penalty_term: This is used to set the penalty level for orthogonality in the orthogonal batch design optimization problem. A higher penalty
+    #term will lead to a more Sigma_orthogonal design, while a lower penalty term will lead to less Sigma_orthogonality in the design
     
     #Construct the batch based off of mu,Sig, and batch_size
-    batch = batch_design_delta_penalty(mu,Sig,batch_size,mu_log_coeff,Sig_log_coeff)[0]
+    batch = batch_design_delta_penalty(mu,Sig,batch_size,mu_log_coeff,Sig_log_coeff, M = penalty_term)[0]
     
     #If desired, include the one-step look ahead optimal question within this batch to help ensure performance
     #is at least as good as one-step look ahead
