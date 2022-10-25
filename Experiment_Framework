@@ -427,7 +427,7 @@ def MSE_det_test(attr_num,mu_scale,Sig_scale,num_rep,num_beta,noise_par,mu_log_c
 #of quality. In this function, we only use one acquisition method at a time (compare with MSE_det_test).
 
 def new_mse_det_hitrate_experiment(init_mu, init_Sig, true_partworths, rep_per_partworth, num_questions, mu_log_coeff, Sig_log_coeff,
-                          noise_par, hitrate_question_list, Method = 0, batch_size = 0, MC_budget = 0, include_one_step = False):
+                          noise_par, hitrate_question_list, Method = 0, batch_size = 0, MC_budget = 0, include_one_step = False, penalty = 100):
     #init_mu: This is the initial estimate on the partworths
     #init_Sig: This is the initial covariance matrix on the partworths
     #true_partworths: These are used to make selection in the product selection stage (a list/set of partworths)
@@ -444,6 +444,8 @@ def new_mse_det_hitrate_experiment(init_mu, init_Sig, true_partworths, rep_per_p
     #MC_budget: Used to select Monte Carlo budget if we use rollout.
     #include_one_step: This determines whether we want to include the one-step optimal question within our batch. This can
     #help ensure that rollout performs at least as well as one-step look ahead. Default value is False.
+    #penalty: This is used to set the penalty level for orthogonality in the orthogonal batch design optimization problem. A higher penalty
+    #term will lead to a more Sigma_orthogonal design, while a lower penalty term will lead to less Sigma_orthogonality in the design
     
     #Construct lists for storing normalized MSE, determinant, hitrate, and MSE information. 
     #For each of the baseline partworths, we create a list holding
@@ -496,7 +498,7 @@ def new_mse_det_hitrate_experiment(init_mu, init_Sig, true_partworths, rep_per_p
                     #of 0 means we only look at the one-step lookahead values of the questions in the batch.
                     rollout_len = num_questions - j - 1
                     [x,y] = rollout_with_batch_design_acquisition(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,
-                                                                 rollout_len,MC_budget,include_one_step)
+                                                                 rollout_len,MC_budget,include_one_step,penalty_term = penalty)
                     
                 #Instantiate gumbel random variables which are used in the product choice selection process.
                 gum_x = rng.gumbel(0,1,1)
