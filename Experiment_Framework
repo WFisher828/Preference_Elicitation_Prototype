@@ -426,13 +426,14 @@ def MSE_det_test(attr_num,mu_scale,Sig_scale,num_rep,num_beta,noise_par,mu_log_c
 #This function is used to compare different methods in a sequential fashion using MSE and determinant as a measurement 
 #of quality. In this function, we only use one acquisition method at a time (compare with MSE_det_test).
 
-def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partworth, num_questions, mu_log_coeff, Sig_log_coeff,
+def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partworth, num_questions,look_ahead_horizon, mu_log_coeff, Sig_log_coeff,
                           noise_par, hitrate_question_list, Method = 0, batch_size = 0, MC_budget = 0, include_one_step = False, penalty = 100):
     #init_mu: This is the initial estimate on the partworths
     #init_Sig: This is the initial covariance matrix on the partworths
     #true_partworths: These are used to make selection in the product selection stage (a list/set of partworths)
     #rep_per_partworth: This is the number of times we want to conduct a questionnaire on each partworth
     #num_questions: Length of the questionnaire
+    #look_ahead_horizon: This is the number of stages that we look ahead in a rollout method.
     #mu_log_coeff; Sig_log_coeff: These are the coefficients in the optimization model for the linearized objective function
     #noise_par: This is a parameter which is used to increase the weight of the individuals' true partworth when making decision
     #between x and y. The higher this weight is, the less effect the gumbel random variable has on user choice.
