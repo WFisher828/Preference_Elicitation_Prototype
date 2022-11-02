@@ -23,7 +23,7 @@ The module "Experiment_Framework" has functions which are used in conducting num
 4. enum_two_step_opt
 5. quantile_test_enum_data
 6. MSE_det_test 
-7. new_mse_det_experiment
+7. new_sequential_experiment
 
 The module "Batch_Design_and_Rollout" has functions which are used in creating a batch design of questions with certain orthogonality conditions,
 as well as functions which are used in performing rollout on a question pair. Rollout is a non-myopic method often used in solving dynamic programming problems. 
