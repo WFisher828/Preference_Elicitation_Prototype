@@ -512,15 +512,18 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
                     
                 if Method == 2:
                     #Do the enumeration procedure for two-step look ahead
-                    enumerated_solution_list_two_step = enum_two_step(mu,Sig,mu_log_coeff,
+                    if j < num_questions-1:
+                        enumerated_solution_list_two_step = enum_two_step(mu,Sig,mu_log_coeff,
                                                              Sig_log_coeff,question_list)
-                    
-                    opt_sol_questions_two_step = enum_two_step_opt(enumerated_solution_list_two_step[0],
+                        opt_sol_questions_two_step = enum_two_step_opt(enumerated_solution_list_two_step[0],
                                                           enumerated_solution_list_two_step[2])
                     
-                    #get the first stage products for true two-step
-                    x = np.array(opt_sol_questions_two_step[1])
-                    y = np.array(opt_sol_questions_two_step[2])
+                        #get the first stage products for true two-step
+                        x = np.array(opt_sol_questions_two_step[1])
+                        y = np.array(opt_sol_questions_two_step[2])
+                    #Use one-step for the last question.
+                    else:
+                        [x,y] = g_opt(mu,Sig,mu_log_coeff,Sig_log_coeff)[1:]
                     
                 if Method == 3:
                     #Do rollout with coordinate exchange
