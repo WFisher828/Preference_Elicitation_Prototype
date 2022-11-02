@@ -515,8 +515,6 @@ def coordinate_exchange_acq(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,rollout
             #perform monte carlo rollout on the current question. Store its value
             current_roll_value = monte_carlo_rollout(mu,Sig,x,y,rollout_length,mu_log_coeff,Sig_log_coeff,MC_budget)
             #This counter is used to determine when the coordinate exchange process stops for this question.
-            print('first roll value: ' + str(current_roll_value))
-            print('first question: ' + str(current_question))
             counter = 0
             #Begin the coordinate exchange process for the current question
             while counter < question_component:
@@ -549,8 +547,6 @@ def coordinate_exchange_acq(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,rollout
                     current_question = [q[:] for q in perturb_question]#perturb_question
                     current_roll_value = perturb_roll_value
                     counter = 0
-                    print('current_question: ' + str(current_question))
-                    print('current_roll_value: ' + str(current_roll_value))
                 else:
                     counter = counter + 1
             
@@ -566,8 +562,6 @@ def coordinate_exchange_acq(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,rollout
             x = current_question[0]
             y = current_question[1]
             current_roll_value = rollout(mu,Sig,x,y,rollout_length,mu_log_coeff,Sig_log_coeff)
-            print('first roll value: ' + str(current_roll_value))
-            print('first question: ' + str(current_question))
             counter = 0
             while counter < question_component:
                 perturb_question = [cq[:] for cq in current_question]
@@ -590,8 +584,6 @@ def coordinate_exchange_acq(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,rollout
                     current_question = [q[:] for q in perturb_question]
                     current_roll_value = perturb_roll_value
                     counter = 0
-                    print('current_question: ' + str(current_question))
-                    print('current_roll_value: ' + str(current_roll_value))
                 else:
                     counter = counter + 1
                 
