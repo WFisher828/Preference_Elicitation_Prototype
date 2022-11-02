@@ -25,6 +25,7 @@ import sys
 sys.path.append(r'C:\Users\wsfishe\Desktop\PreferenceElicitationCode')
 from Questionnaire_Procedure import *
 from Baseline_Functions_Definitions import g_fun_linear_regression
+from Batch_Design_and_Rollout import batch_design_delta_penalty, question_selection_prob, rollout, monte_carlo_rollout,rollout_with_batch_design_acquisition, coordinate_exchange_acq
 
 #From Questionnaire_Procedure we are importing:
 
