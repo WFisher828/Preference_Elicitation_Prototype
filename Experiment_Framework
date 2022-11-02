@@ -494,7 +494,7 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
                     
                 if Method == 1:
                     #get optimal question for rollout over batch design
-                    #Use a rollout length equal to look_ahead_horizon, until we are within look_ahead_horizon of the
+                    #Use a rollout length equal to look_ahead_horizon - 1, until we are within look_ahead_horizon of the
                     #budget
                     
                     if j < num_questions - look_ahead_horizon:
