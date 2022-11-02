@@ -461,3 +461,146 @@ def rollout_with_batch_design_acquisition(mu,Sig,mu_log_coeff,Sig_log_coeff,batc
     opt_question = batch[min_index]
     
     return opt_question
+
+    ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+***********************************************************************************************************************************************************************
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+def coordinate_exchange_acq(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,rollout_length,MC_budget,rel_gap_threshold,
+                           include_batch = False, include_one_step = True):
+    #mu: This is the initial mean parameter that we start with
+    #Sig: This is the initial covariance matrix we start with
+    #mu_log_coeff: The estimated coefficient c_1 that goes with m in the linear model log(g) = c_1*m + c_2*v
+    #Sig_log_coeff: The estimated coefficient c_2 that goes with v in the linear model log(g) = c_1m + c_2*v
+    #batch_size: the number of questions we want to return in our batch design. This should be less or equal to the number
+    #of attributes
+    #rollout_length: This is how far ahead we wish to "rollout" the initial question (x,y) under the one
+    #step lookahead base policy
+    #MC_budget: This is the budget we allow for monte carlo method of rollout. At this point in time, we will use MC if
+    #rollout_length is greater than 8.
+    #rel_gap_threshold: This is used to see if the perturbed question outperforms the current question
+    #include_batch: This determines whether we also iterate over the batch questions.
+    #include_one_step: This determines whether we want to include the one-step optimal question within our batch. This can
+    #help ensure that rollout performs at least as well as one-step look ahead.
+    
+    #question_component tells us how many components are in (x,y)
+    attr = len(mu)
+    question_component = 2*attr
+    
+    #Used to store the initial set of questions coming from batch and one-step method
+    init_set_of_questions = []
+    
+    #Used to store the set of questions after performing coordinate exchange on the initial batch
+    final_set_of_questions = []
+    
+    #This will store the rollout values of the final set of questions
+    final_det_values = []
+    
+    #Determine if the initial set of questions includes the batch design
+    if include_batch:
+        init_set_of_questions = batch_design_delta_penalty(mu,Sig,batch_size,mu_log_coeff,Sig_log_coeff)[0]
+    
+    #Determine if the initial set of questions includes the one-step optimal solution
+    if include_one_step:
+        [one_step_x,one_step_y] = g_opt(mu,Sig,mu_log_coeff,Sig_log_coeff)[1:]
+        init_set_of_questions.append([one_step_x,one_step_y])
+    
+    #Need to use monte_carlo if rollout_length is greater than 8
+    if rollout_length>=8:
+        #iterate over all the questions
+        for question in init_set_of_questions:
+            current_question = [q[:] for q in question]#question[:]
+            x = current_question[0]
+            y = current_question[1]
+            #perform monte carlo rollout on the current question. Store its value
+            current_roll_value = monte_carlo_rollout(mu,Sig,x,y,rollout_length,mu_log_coeff,Sig_log_coeff,MC_budget)
+            #This counter is used to determine when the coordinate exchange process stops for this question.
+            print('first roll value: ' + str(current_roll_value))
+            print('first question: ' + str(current_question))
+            counter = 0
+            #Begin the coordinate exchange process for the current question
+            while counter < question_component:
+                #Initiate a variable called perturb question. This question will start as the same as the current question,
+                #but later on we will change a single attribute in one of the products and see if that improves the rollout
+                #value.
+                perturb_question = [cq[:] for cq in current_question]
+                #If the counter is less than the number of product attributes, we will change one of the entries in 'x'
+                if counter < attr:
+                    #Changing an entry in 'x'
+                    perturb_question[0][counter] = abs(1.0-current_question[0][counter])
+                    x_perturb = perturb_question[0]
+                    y_perturb = perturb_question[1]
+                    #Make sure the perturbed 'x' and 'y' are not equal. If so, check its rollout value.
+                    if np.dot(np.array(x_perturb)-np.array(y_perturb),np.array(x_perturb)-np.array(y_perturb))>0:
+                        perturb_roll_value = monte_carlo_rollout(mu,Sig,x_perturb,y_perturb,rollout_length,mu_log_coeff,
+                                                                 Sig_log_coeff,MC_budget)
+                #If counter is greater than number of product attributes, we will change one of the entries in 'y'.
+                else:
+                    perturb_question[1][counter-attr] = abs(1.0 - current_question[1][counter-attr])
+                    x_perturb = perturb_question[0]
+                    y_perturb = perturb_question[1]
+                    if np.dot(np.array(x_perturb)-np.array(y_perturb),np.array(x_perturb)-np.array(y_perturb))>0:
+                        perturb_roll_value = monte_carlo_rollout(mu,Sig,x_perturb,y_perturb,rollout_length,mu_log_coeff,
+                                                                 Sig_log_coeff,MC_budget)
+                
+                #If the perturbed question's rollout value outperforms the current question's rollout value by some
+                #relative threshold, then we will replace the current question with the perturbed question
+                if (current_roll_value - perturb_roll_value)/current_roll_value >= rel_gap_threshold:
+                    current_question = [q[:] for q in perturb_question]#perturb_question
+                    current_roll_value = perturb_roll_value
+                    counter = 0
+                    print('current_question: ' + str(current_question))
+                    print('current_roll_value: ' + str(current_roll_value))
+                else:
+                    counter = counter + 1
+            
+            #After the coordinate exchange process, we place the resulting question and its rollout value in a list.
+            final_set_of_questions.append(current_question)
+            final_det_values.append(current_roll_value)
+    
+    #Use regular rollout if rollout length is less than 8. Same coordinate exchange process as in the 
+    #monte carlo rollout method    
+    else:
+        for question in init_set_of_questions:
+            current_question = [q[:] for q in question]
+            x = current_question[0]
+            y = current_question[1]
+            current_roll_value = rollout(mu,Sig,x,y,rollout_length,mu_log_coeff,Sig_log_coeff)
+            print('first roll value: ' + str(current_roll_value))
+            print('first question: ' + str(current_question))
+            counter = 0
+            while counter < question_component:
+                perturb_question = [cq[:] for cq in current_question]
+                if counter < attr:
+                    perturb_question[0][counter] = abs(1.0-current_question[0][counter])
+                    x_perturb = perturb_question[0]
+                    y_perturb = perturb_question[1]
+                    if np.dot(np.array(x_perturb)-np.array(y_perturb),np.array(x_perturb)-np.array(y_perturb))>0:
+                        perturb_roll_value = rollout(mu,Sig,x_perturb,y_perturb,rollout_length,mu_log_coeff,
+                                                                 Sig_log_coeff)
+                else:
+                    perturb_question[1][counter-attr] = abs(1.0 - current_question[1][counter-attr])
+                    x_perturb = perturb_question[0]
+                    y_perturb = perturb_question[1]
+                    if np.dot(np.array(x_perturb)-np.array(y_perturb),np.array(x_perturb)-np.array(y_perturb))>0:
+                        perturb_roll_value = rollout(mu,Sig,x_perturb,y_perturb,rollout_length,mu_log_coeff,
+                                                                 Sig_log_coeff)
+                    
+                if (current_roll_value - perturb_roll_value)/current_roll_value >= rel_gap_threshold:
+                    current_question = [q[:] for q in perturb_question]
+                    current_roll_value = perturb_roll_value
+                    counter = 0
+                    print('current_question: ' + str(current_question))
+                    print('current_roll_value: ' + str(current_roll_value))
+                else:
+                    counter = counter + 1
+                
+            final_set_of_questions.append(current_question)
+            final_det_values.append(current_roll_value)
+    
+    #Find the minimimum rollout value among all the questions that have went through coordinate exchange. Pick the one with
+    #the smallest rollout value.
+    min_index = np.argmin(np.array(final_det_values))
+    rollout_coordinate_opt_question = final_set_of_questions[min_index]
+    
+    return rollout_coordinate_opt_question
