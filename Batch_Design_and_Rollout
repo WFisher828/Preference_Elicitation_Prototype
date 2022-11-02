@@ -309,7 +309,7 @@ def rollout(mu,Sig,x,y,rollout_length,mu_log_coeff,Sig_log_coeff):
                 
         N = Node_list
         
-    weighted_det_sum = sum(np.linalg.det(node[1])*node[2] for node in N)
+    weighted_det_sum = sum(np.sqrt(np.linalg.det(node[1]))*node[2] for node in N)
     
     return weighted_det_sum
     
@@ -400,7 +400,7 @@ def monte_carlo_rollout(mu,Sig,x,y,rollout_length,mu_log_coeff,Sig_log_coeff,sam
     
     #Calculate an estimate for the determinant. We use the sample average of the determinants of the covariances coming from
     #different trajectories.
-    determinant_estimate = (1/sample_budget)*sum(np.linalg.det(S) for S in Sig_list)
+    determinant_estimate = (1/sample_budget)*sum(np.sqrt(np.linalg.det(S)) for S in Sig_list)
     
     return determinant_estimate
     
