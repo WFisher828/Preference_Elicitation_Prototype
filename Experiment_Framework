@@ -428,7 +428,7 @@ def MSE_det_test(attr_num,mu_scale,Sig_scale,num_rep,num_beta,noise_par,mu_log_c
 #of quality. In this function, we only use one acquisition method at a time (compare with MSE_det_test).
 
 def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partworth, num_questions,look_ahead_horizon, mu_log_coeff, Sig_log_coeff,
-                          noise_par, question_list, Method = 0, batch_size = 0, MC_budget = 0, include_one_step = False, penalty = 100):
+                          noise_par, question_list, Method = 0, batch_size = 0, MC_budget = 0, include_one_step = False, penalty = 100,rel_gap = 0.0001):
     #init_mu: This is the initial estimate on the partworths
     #init_Sig: This is the initial covariance matrix on the partworths
     #true_partworths: These are used to make selection in the product selection stage (a list/set of partworths)
@@ -443,12 +443,16 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
     #Method: 0 - One step look ahead
     #        1 - Rollout with batch design   <------ CAN ADD MORE METHODS IF NEEDED
     #        2 - Two step look ahead via enumeration
+    #        3 - Rollout using coordinate exchange
     #batch_size: Used to select batch size if we use rollout
     #MC_budget: Used to select Monte Carlo budget if we use rollout.
     #include_one_step: This determines whether we want to include the one-step optimal question within our batch. This can
     #help ensure that rollout performs at least as well as one-step look ahead. Default value is False.
     #penalty: This is used to set the penalty level for orthogonality in the orthogonal batch design optimization problem. A higher penalty
     #term will lead to a more Sigma_orthogonal design, while a lower penalty term will lead to less Sigma_orthogonality in the design
+    #rel_gap: This is used in rollout with coordinate exchange. This value measures the improvement of a question's rollout
+    #value over the current question's rollout value. If the improvement is greater than the relative gap, we update the current
+    #question
     
     #Construct lists for storing normalized MSE, determinant, hitrate, and MSE information. 
     #For each of the baseline partworths, we create a list holding
@@ -517,6 +521,16 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
                     #get the first stage products for true two-step
                     x = np.array(opt_sol_questions_two_step[1])
                     y = np.array(opt_sol_questions_two_step[2])
+                    
+                if Method == 3:
+                    #Do rollout with coordinate exchange
+                    if j < num_questions - look_ahead_horizon:
+                        rollout_len = look_ahead_horizon - 1
+                    else:
+                        rollout_len = num_questions - j - 1
+                        
+                    [x,y] = coordinate_exchange_acq(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,rollout_len,
+                                                   MC_budget,rel_gap,include_batch = False,include_onestep)
                 
                 #Instantiate gumbel random variables which are used in the product choice selection process.
                 gum_x = rng.gumbel(0,1,1)
