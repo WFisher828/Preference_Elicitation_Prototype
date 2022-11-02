@@ -494,10 +494,13 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
                     
                 if Method == 1:
                     #get optimal question for rollout over batch design
-                    #Set rollout_len so that it uses the budget of questions we have. If we have a budget of 16 questions,
-                    #we will want to first start out by doing a rollout of length 16, then 15, then 14... A rollout length
-                    #of 0 means we only look at the one-step lookahead values of the questions in the batch.
-                    rollout_len = num_questions - j - 1
+                    #Use a rollout length equal to look_ahead_horizon, until we are within look_ahead_horizon of the
+                    #budget
+                    
+                    if j < num_questions - look_ahead_horizon:
+                        rollout_len = look_ahead_horizon - 1
+                    else:
+                        rollout_len = num_questions - j - 1
                     [x,y] = rollout_with_batch_design_acquisition(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,
                                                                  rollout_len,MC_budget,include_one_step,penalty_term = penalty)
                     
