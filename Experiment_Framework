@@ -445,6 +445,9 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
     #        2 - Two step look ahead via enumeration
     #        3 - Rollout using coordinate exchange
     #batch_size: Used to select batch size if we use rollout
+    #        OPTIONS:
+    #        batch_size = n (n is a non-negative integer): This will make it so that the batch size is constant and equal to n for every rollout iteration
+    #        batch_size = 'LAH': This will make it so that the batch size is equal to the look-ahead horizon
     #MC_budget: Used to select Monte Carlo budget if we use rollout.
     #include_one_step: This determines whether we want to include the one-step optimal question within our batch. This can
     #help ensure that rollout performs at least as well as one-step look ahead. Default value is False.
