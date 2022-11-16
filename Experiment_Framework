@@ -447,7 +447,7 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
     #batch_size: Used to select batch size if we use rollout
     #        OPTIONS:
     #        batch_size = n (n is a non-negative integer): This will make it so that the batch size is constant and equal to n for every rollout iteration
-    #        batch_size = 'LAH': This will make it so that the batch size is equal to the look-ahead horizon
+    #        batch_size = -1: This will make it so that the batch size is equal to the look-ahead horizon
     #MC_budget: Used to select Monte Carlo budget if we use rollout.
     #include_one_step: This determines whether we want to include the one-step optimal question within our batch. This can
     #help ensure that rollout performs at least as well as one-step look ahead. Default value is False.
@@ -510,7 +510,13 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
                         rollout_len = look_ahead_horizon - 1
                     else:
                         rollout_len = num_questions - j - 1
-                    [x,y] = rollout_with_batch_design_acquisition(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,
+                  
+                    if batch_size == -1:
+                        #When batch_size is -1, we use the rollout length + 1 as the batch size.
+                        [x,y] = rollout_with_batch_design_acquisition(mu,Sig,mu_log_coeff,Sig_log_coeff,rollout_len+1,
+                                                                 rollout_len,MC_budget,include_one_step,penalty_term = penalty)
+                    else:
+                        [x,y] = rollout_with_batch_design_acquisition(mu,Sig,mu_log_coeff,Sig_log_coeff,batch_size,
                                                                  rollout_len,MC_budget,include_one_step,penalty_term = penalty)
                     
                 if Method == 2:
