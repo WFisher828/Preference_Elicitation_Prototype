@@ -475,7 +475,7 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
                                            true_partworths[u]])
     
     #Set up lists to hold normalized MSE, determinant, MSE, and hitrate information. For now, we will only calculate hitrate at the end
-    #of the questionnaire
+    #of the questionnaire.  Also save the mu vectors. 
     
     MSE_normalized = [[[] for j in range(num_questions)] for u in range(num_true_partworth)]
     
@@ -486,6 +486,8 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
     HITRATE = [[] for u in range(num_true_partworth)]
     
     PROB_CORRECT_SEL = []
+    
+    MU = [[[] for j in range(num_questions)] for u in range(num_true_partworth)]
     
     for u in range(num_true_partworth):
         #create a variable which will store the number of correct selections.
@@ -562,6 +564,8 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
                 #Perform moment matching after choice is made.
                 [mu, Sig] = moment_matching_update(x,y,mu,Sig)
                 
+                #add mu to the list of mu vectors
+                MU[u][j].append(mu)
                 #Add the MSE between the true partworth and estimator at question j to a list, and add the determinant of
                 #the covariance matrix at question j into a list. Also add the regular MSE.
                 MSE_normalized[u][j].append(np.square(np.subtract(true_partworths[u]/np.linalg.norm(true_partworths[u],ord = 2),
@@ -588,4 +592,4 @@ def new_sequential_experiment(init_mu, init_Sig, true_partworths, rep_per_partwo
         #Calculate the probability of correct selection for the current true partworth
         PROB_CORRECT_SEL.append(correct_sel/rep_per_partworth)
     
-    return[MSE_normalized,DET,HITRATE,MSE,PROB_CORRECT_SEL]
+    return[MSE_normalized,DET,HITRATE,MSE,PROB_CORRECT_SEL,true_partworths,MU]
