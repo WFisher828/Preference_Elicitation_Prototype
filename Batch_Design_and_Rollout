@@ -5,11 +5,14 @@
 
 #orthogonal_constraint_feas
 #batch_design_delta_penalty #THIS WILL BE PREFERRED OVER batch_design_delta_refine
+#batch_design_AO
+#batch_design_MO
 #batch_design_delta_refine
 #question_selection_prob
 #rollout
 #monte_carlo_rollout
 #rollout_with_batch_design_acquisition
+#coordinate_exchange_acq
 
 ------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ***********************************************************************************************************************************************************************
