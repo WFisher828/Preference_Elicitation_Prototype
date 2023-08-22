@@ -1,4 +1,4 @@
-# Preference_Elicitation
+# Preference_Elicitation (JUST SEEING HOW MERGE WORKS)
 A collection of code for the Preference_Elicitation Project
 
 The module "Baseline_Functions_Definitions" includes functions that the questionnaire procedure and experimental framework
