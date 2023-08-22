@@ -24,7 +24,10 @@ from sklearn import linear_model
 def z_expectation_variance(m,v):
     #m is question mean
     #v is question variance
-    integ_bound = 30.0
+
+    #MARCH 28 2023: CHANGED TO 35 (from 30) due to some errors in calculation. At integ_bound = 30, there were instances 
+    #where variance was calculated to be less than 0. 
+    integ_bound = 35.0
     
     #Set up functions for calculating expectation and variance of Z
     fun1 = lambda z: ((1 + math.e**(-m - math.sqrt(v)*z))**(-1))*(math.e**((-z**2)/2))/math.sqrt(2*math.pi)
@@ -46,8 +49,9 @@ def z_expectation_variance(m,v):
 def g_fun(m,v,n=2):
     #m and v are question mean and variance arguments
     
-    #A bound for integration so to prevent numerical issues.
-    integ_bound = 30.0
+    #MARCH 28 2023: CHANGED TO 35 (from 30) due to some errors in calculation. At integ_bound = 30, there were instances 
+    #where variance was calculated to be less than 0. 
+    integ_bound = 35.0
     
     #fun1 represents the pdf of the Z(m,v) random variable before normalizing
     fun1 = lambda z: ((1 + math.e**(-m - math.sqrt(v)*z))**(-1))*(math.e**((-z**2)/2))/math.sqrt(2*math.pi)
