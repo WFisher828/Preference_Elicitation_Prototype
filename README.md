@@ -30,8 +30,10 @@ as well as functions which are used in performing rollout on a question pair. Ro
 These functions include:
 1. orthogonal_constraint_feas
 2. batch_design_delta_penalty #THIS WILL BE PREFERRED OVER batch_design_delta_refine
-3. batch_design_delta_refine
-4. question_selection_prob
-5. rollout
-6. monte_carlo_rollout
-7. rollout_with_batch_design_acquisition
+3. batch_design_AO
+4. batch_design_MO
+5. batch_design_delta_refine
+6. question_selection_prob
+7. rollout
+8. monte_carlo_rollout
+9. rollout_with_batch_design_acquisition
