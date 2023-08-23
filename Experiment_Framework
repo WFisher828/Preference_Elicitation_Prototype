@@ -189,6 +189,42 @@ def enum_two_step(mu_vec, Sig_mat, mu_log_coeff, Sig_log_coeff, prod_diff_set, p
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
 *************************************************************************************************************************************************************
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
+#A function which returns a list of all the enumerated two-step acquisition values of a given product set in the
+#multi-level attribute setting. We use the exact
+#two-step g function. We return the prod_diff_set in case there was sampling done and we have interest in the sampled
+#question pairs. We also return a list of all the first stage and two second stage questions.
+
+def multlvl_enum_two_step(mu_vec, Sig_mat, mu_log_coeff, Sig_log_coeff, multlvl_prod_diff_set, num_lvl, prod_samp_num = 0):
+    #mu_vec: expectation of prior on beta
+    #Sig_mat: covariance matrix of prior on beta
+    #mu_log_coeff and Sig_log_coeff: coefficients that are used in the optimization prblem.
+    #multlvl_prod_diff_set: set of question pairs we are enumerating over. This should be created by using multlvl_product_diff_list.
+    #num_lvl: This is the number of levels in each attribute of the product.
+    #prod_samp_num: Should be a positive integer. Used in obtaining a random sample of product pairs if needed.
+    
+    #Sample a number of product pairs from the product pairs list, if needed in the case where
+    #there are a large number of attributes. Will possibly need a seed for random.sample()
+    if prod_samp_num>0:
+        multlvl_prod_diff_set = random.sample(multlvl_prod_diff_set,prod_samp_num)
+        
+    #define a list to store enumerated two-step values, along with a list to save the first stage and two second stage
+    #questions.
+    multlvl_prod_diff_len = len(multlvl_prod_diff_set)
+    multlvl_two_step_g_val = [0]*multlvl_prod_diff_len
+    first_stage_second_stage_questions = [0]*multlvl_prod_diff_len
+    
+    #calculate two-step values for all question pairs
+    n = len(mu_vec)
+    for i in range(0, multlvl_prod_diff_len):
+        x_0,y_0 = multlvl_question_extractor(multlvl_prod_diff_set[i],num_lvl)
+        multlvl_two_step = multlvl_two_step_g_acq(mu_vec,Sig_mat,mu_log_coeff,Sig_log_coeff,x_0,y_0,[num_lvl]*n)
+        multlvl_two_step_g_val[i] = multlvl_two_step[0]
+        first_stage_second_stage_questions[i] = [x_0,y_0,multlvl_two_step[1],multlvl_two_step[2],multlvl_two_step[3],multlvl_two_step[4]]
+        
+    return multlvl_two_step_g_val,multlvl_prod_diff_set,first_stage_second_stage_questions
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+*************************************************************************************************************************************************************
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 #A function which returns the best performing solution and their two-step acquisition values, along with the corresponding
 #first stage and two second stage questions.
