@@ -128,7 +128,34 @@ def question_extractor(prod):
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
 *************************************************************************************************************************************************************
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
-
+#Given a vector d with entries coming from -(m-1), -(m-2),...,0,...,m-2,m-1, find two vectors x and y with entries
+#in 0,1,...,m-2,m-1 whose difference is d.
+def multlvl_question_extractor(prod,num_lvl):
+    #prod: This is a vector with entries coming from -(m-1), -(m-2),...,0,...,m-2,m-1 
+    #that represents the difference between two products, where the two products have attributes with entrie coming from
+    #0,1,...,m-2,m-1
+    #num_lvl: This is the number of levels in each attribute of the product.
+    
+    n = len(prod)
+    
+    x = [0]*n
+    y = [0]*n
+    for i in range(n):
+        for j in range(-(num_lvl - 1),num_lvl):
+            if prod[i]==j and j<0:
+                x[i] = 0
+                y[i] = j
+            if prod[i]==j and j==0:
+                x[i] = 0
+                y[i] = 0
+            if prod[i]==j and j>0:
+                x[i] = j
+                y[i] = 0
+    
+    return x,y          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+*************************************************************************************************************************************************************
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
 #A function which returns a list of all the enumerated two-step acquisition values of a given product set. We use the exact
 #two-step g function. We return the prod_diff_set in case there was sampling done and we have interest in the sampled
 #question pairs. We also return a list of all the first stage and two second stage questions.
