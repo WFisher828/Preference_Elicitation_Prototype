@@ -78,7 +78,34 @@ def product_diff_list(n):
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
 *************************************************************************************************************************************************************
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
+#Define a set that has all the differences between quantitative multi-level products. For simplicity, we assume that
+#the number of levels are the same among all attributes
 
+def multlvl_product_diff_list(n,num_lvl):
+    #n: the number of attributes of the products
+    #num_lvl: this is a integer declaring the number of levels for each attribute. For example, n=3, num_lvl=4 denotes
+    #three attributes with 4 quantitative levels each. Each attribute in this case
+    #would be encode with levels 0, 1, 2, and 3.
+    
+    ml_p_d_l = list(itertools.product(range(-(num_lvl-1),num_lvl), repeat = n))
+    
+    #Return the index of the tuple with all 0s.
+    zero_index = ml_p_d_l.index(tuple([0]*n))
+    
+    #Note that at this point, product_diff_list contains some redundant information. Due to
+    #the symmetry of the one-step and two-step acquisition function in terms of question mean, question pairs such as 
+    #(-1,-1,-1,...,-1) and (1,1,1,...,1) (i.e. negative multiples) will evaluate as the same under the one-step and two-step
+    #acquisition functions. Due to the structure of product_diff_list, we can remove every question pair before and including
+    #the question pair with all zero entries in order to remove this redundant information.
+    for i in range(0,zero_index + 1):
+        ml_p_d_l.pop(0)
+    
+    ml_p_d_l = [np.array(a) for a in ml_p_d_l]
+
+    return ml_p_d_l
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+*************************************************************************************************************************************************************
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
 #Given a trinary vector of 0, 1, and -1, find two binary products whose difference is the trinary vector.
 def question_extractor(prod):
     #prod: This is a trinary vector of 0, 1, and -1 that represents the difference between two products, which
@@ -101,7 +128,34 @@ def question_extractor(prod):
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
 *************************************************************************************************************************************************************
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
-
+#Given a vector d with entries coming from -(m-1), -(m-2),...,0,...,m-2,m-1, find two vectors x and y with entries
+#in 0,1,...,m-2,m-1 whose difference is d.
+def multlvl_question_extractor(prod,num_lvl):
+    #prod: This is a vector with entries coming from -(m-1), -(m-2),...,0,...,m-2,m-1 
+    #that represents the difference between two products, where the two products have attributes with entrie coming from
+    #0,1,...,m-2,m-1
+    #num_lvl: This is the number of levels in each attribute of the product.
+    
+    n = len(prod)
+    
+    x = [0]*n
+    y = [0]*n
+    for i in range(n):
+        for j in range(-(num_lvl - 1),num_lvl):
+            if prod[i]==j and j<0:
+                x[i] = 0
+                y[i] = j
+            if prod[i]==j and j==0:
+                x[i] = 0
+                y[i] = 0
+            if prod[i]==j and j>0:
+                x[i] = j
+                y[i] = 0
+    
+    return x,y          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+*************************************************************************************************************************************************************
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
 #A function which returns a list of all the enumerated two-step acquisition values of a given product set. We use the exact
 #two-step g function. We return the prod_diff_set in case there was sampling done and we have interest in the sampled
 #question pairs. We also return a list of all the first stage and two second stage questions.
@@ -135,14 +189,52 @@ def enum_two_step(mu_vec, Sig_mat, mu_log_coeff, Sig_log_coeff, prod_diff_set, p
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
 *************************************************************************************************************************************************************
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
+#A function which returns a list of all the enumerated two-step acquisition values of a given product set in the
+#multi-level attribute setting. We use the exact
+#two-step g function. We return the prod_diff_set in case there was sampling done and we have interest in the sampled
+#question pairs. We also return a list of all the first stage and two second stage questions.
+
+def multlvl_enum_two_step(mu_vec, Sig_mat, mu_log_coeff, Sig_log_coeff, multlvl_prod_diff_set, num_lvl, prod_samp_num = 0):
+    #mu_vec: expectation of prior on beta
+    #Sig_mat: covariance matrix of prior on beta
+    #mu_log_coeff and Sig_log_coeff: coefficients that are used in the optimization prblem.
+    #multlvl_prod_diff_set: set of question pairs we are enumerating over. This should be created by using multlvl_product_diff_list.
+    #num_lvl: This is the number of levels in each attribute of the product.
+    #prod_samp_num: Should be a positive integer. Used in obtaining a random sample of product pairs if needed.
+    
+    #Sample a number of product pairs from the product pairs list, if needed in the case where
+    #there are a large number of attributes. Will possibly need a seed for random.sample()
+    if prod_samp_num>0:
+        multlvl_prod_diff_set = random.sample(multlvl_prod_diff_set,prod_samp_num)
+        
+    #define a list to store enumerated two-step values, along with a list to save the first stage and two second stage
+    #questions.
+    multlvl_prod_diff_len = len(multlvl_prod_diff_set)
+    multlvl_two_step_g_val = [0]*multlvl_prod_diff_len
+    first_stage_second_stage_questions = [0]*multlvl_prod_diff_len
+    
+    #calculate two-step values for all question pairs
+    n = len(mu_vec)
+    for i in range(0, multlvl_prod_diff_len):
+        x_0,y_0 = multlvl_question_extractor(multlvl_prod_diff_set[i],num_lvl)
+        multlvl_two_step = multlvl_two_step_g_acq(mu_vec,Sig_mat,mu_log_coeff,Sig_log_coeff,x_0,y_0,[num_lvl]*n)
+        multlvl_two_step_g_val[i] = multlvl_two_step[0]
+        first_stage_second_stage_questions[i] = [x_0,y_0,multlvl_two_step[1],multlvl_two_step[2],multlvl_two_step[3],multlvl_two_step[4]]
+        
+    return multlvl_two_step_g_val,multlvl_prod_diff_set,first_stage_second_stage_questions
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+*************************************************************************************************************************************************************
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 #A function which returns the best performing solution and their two-step acquisition values, along with the corresponding
 #first stage and two second stage questions.
 #We use the exact two-step g function. Used for experimenting and gaining insight into two-step acquisition.
+#NOTE: THIS CAN BE USED FOR MULTILEVEL CASE.
 
 def enum_two_step_opt(two_step_values,first_second_stage_question):
     #two_step_values: A list of two_step values. This should come from the function enum_two_step
-    
+    #first_second_stage_question: A list of all first stage and their corresponding two second stage 
+    #question counterparts. This comes from the functions enum_two_step or multlvl_enum_two_step 
     
     #Find min index of the two-step enumeration. Use these values to return the optimal two-step value,
     #along with their corresponding questions.
@@ -231,7 +323,116 @@ def quantile_test_enum_data(attr_num,prod_diff_list,rep_num,scale,location,mu_lo
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
 *************************************************************************************************************************************************************
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
+#February 27, 2023. This function is used to check the one-step optimal solution's quantile as ranked against
+#all of the two-step feasible solutions (two-step) function values. We enumerate all of the possible solution's two-step
+#acquisition value, and see where the one-step optimal solution lies within this list.
+def one_step_sol_two_step_quantile(attr_num,prod_diff_list,rep_num,scale,location,mu_log_coeff,Sig_log_coeff):
+    #attr_num: the number of attributes the products have.
+    
+    #prod_diff_list: A list of product pairs we will enumerate over for each replication. 
+    #Products should have same number of attributes as attr_num.
+    
+    #rep_num: the number of replications we wish to make
+    
+    #scale: A parameter to increase/decrease the determinant of the random covariance matrix
+    
+    #location: A parameter to increase/decrease the magnitude of the partworth estimator.
+    
+    #mu_log_coeff and Sig_log_coeff: linear coefficients that are used in the optimization problem
+    
+    #create lists to store quantile data for one-step under two-step solution
+    quant_val_one_step = [0.0]*rep_num
+    one_step_sol_val_list = [0.0]*rep_num
+    
+    enum_df = pd.DataFrame()
+    
+    #Collect quantile data
+    for i in range(0, rep_num):
+        #prior parameters
+        mu_0_rand = location*rng.uniform(low = -1.0, high = 1.0, size = attr_num) #use rng, this is Unif(-1.0,1.0)
+        print(mu_0_rand)
+        Sig_0_rand = scale*sklearn.datasets.make_spd_matrix(attr_num) #NEED SEED FOR THIS
+        
+        #Solve the one-step optimization problem's optimal solution
+        [x_0, y_0] = g_opt(mu_0_rand,Sig_0_rand,mu_log_coeff,Sig_log_coeff)[1:]
+        
+        #Save the two-step acquisition function values of the one-step solution
+        one_step_sol_val = two_step_g_acq(mu_0_rand, Sig_0_rand,mu_log_coeff,Sig_log_coeff, x_0, y_0)[0]
+        
+        one_step_sol_val_list[i] = one_step_sol_val
+        
+        #Create a list storing all of the enumerated values of all question pairs evaluated
+        #under two-step acquisition function. Return a dataframe containing enumeration if needed.
+        enum_data = enum_two_step(mu_0_rand,Sig_0_rand,mu_log_coeff,Sig_log_coeff,prod_diff_list)[0]
+        enum_df['Trial: %s'%(str(i))] = enum_data
+        
+        #Calculate the quantile values of one-step and two-step. The best performing solution will have a quant
+        #value of 1.0 and the worst performing solution will have a quant value of 0.
+        enum_data_len = len(enum_data)
+        one_step_quantile = [1 for x in enum_data if x >= one_step_sol_val]
+        quant_val_one_step[i] = sum(one_step_quantile)/enum_data_len
+        print('iteration: ' +str(i))
+     
+    return [quant_val_one_step, enum_df, one_step_sol_val_list]
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+*************************************************************************************************************************************************************
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+#March 15, 2023. This function is used to check the one-step optimal solution's quantile as ranked against
+#all of the two-step feasible solutions (two-step) function values in the multi-level setting. We enumerate all of the possible solution's two-step
+#acquisition value, and see where the one-step optimal solution lies within this list.
 
+def multlvl_one_step_sol_two_step_quantile(attr_num,multlvl_prod_diff_list,rep_num,scale,location,mu_log_coeff,Sig_log_coeff, num_lvl):
+    #attr_num: the number of attributes the products have.
+    
+    #multlvl_prod_diff_list: A list of product pairs we will enumerate over for each replication. 
+    #Products should have same number of attributes as attr_num. We assume each attribute has same number of levels.
+    
+    #rep_num: the number of replications we wish to make
+    
+    #scale: A parameter to increase/decrease the determinant of the random covariance matrix
+    
+    #location: A parameter to increase/decrease the magnitude of the partworth estimator.
+    
+    #mu_log_coeff and Sig_log_coeff: linear coefficients that are used in the optimization problem
+    
+    #num_lvl: This is the number of levels in each attribute of the product.
+    
+    quant_val_one_step = [0.0]*rep_num
+    one_step_sol_val_list = [0.0]*rep_num
+    
+    enum_df = pd.DataFrame()
+    
+    #Collect quantile data
+    for i in range(0, rep_num):
+        #prior parameters
+        mu_0_rand = location*rng.uniform(low = -1.0, high = 1.0, size = attr_num) #use rng, this is Unif(-1.0,1.0)
+        print(mu_0_rand)
+        Sig_0_rand = scale*sklearn.datasets.make_spd_matrix(attr_num) #NEED SEED FOR THIS
+        
+        #Solve the one-step optimization problem's optimal solution
+        [x_0, y_0] = g_opt_multi_lvl(mu_0_rand,Sig_0_rand,mu_log_coeff,Sig_log_coeff,[num_lvl]*attr_num)[1:3]
+        
+        #Save the two-step acquisition function values of the one-step solution
+        one_step_sol_val = multlvl_two_step_g_acq(mu_0_rand, Sig_0_rand,mu_log_coeff,Sig_log_coeff, x_0, y_0,[num_lvl]*attr_num)[0]
+        
+        one_step_sol_val_list[i] = one_step_sol_val
+        
+        #Create a list storing all of the enumerated values of all question pairs evaluated
+        #under two-step acquisition function. Return a dataframe containing enumeration if needed.
+        enum_data = multlvl_enum_two_step(mu_0_rand,Sig_0_rand,mu_log_coeff,Sig_log_coeff,multlvl_prod_diff_list,num_lvl)[0]
+        enum_df['Trial: %s'%(str(i))] = enum_data
+        
+        #Calculate the quantile values of one-step and two-step. The best performing solution will have a quant
+        #value of 1.0 and the worst performing solution will have a quant value of 0.
+        enum_data_len = len(enum_data)
+        one_step_quantile = [1 for x in enum_data if x >= one_step_sol_val]
+        quant_val_one_step[i] = sum(one_step_quantile)/enum_data_len
+        print('iteration: ' +str(i))
+        
+    return [quant_val_one_step, enum_df, one_step_sol_val_list]
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+*************************************************************************************************************************************************************
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
 #This function is used to compare one-step and two-step in a sequential fashion. We start the experiment with
 #some prior information (expectation and covariance matrix), and sample a number of individuals
 #(partworth vectors) from this prior. We then run the two questionnaires (one-step and two-step) on all of the individuals,
@@ -422,7 +623,6 @@ def MSE_det_test(attr_num,mu_scale,Sig_scale,num_rep,num_beta,noise_par,mu_log_c
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
 *************************************************************************************************************************************************************
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
-
 #!!!THIS FUNCTION IS A REWRITE OF MSE_det_test!!!#
 #This function is used to compare different methods in a sequential fashion using MSE and determinant as a measurement 
 #of quality. In this function, we only use one acquisition method at a time (compare with MSE_det_test).
