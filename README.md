@@ -12,18 +12,26 @@ two-step questionnaire, along with the two-step acquisition function since it de
 coming from this module. It includes the following functions:
 1. moment_matching_update
 2. g_opt
-3. two_stage_g_opt
-4. two_step_g_acq (WE INCLUDE THIS HERE BECAUSE IT DEPENDS ON moment_matching_update AND g_opt, THEMATICALLY THIS
+3. g_opt_multi_lvl
+4. two_stage_g_opt
+5. two_step_g_acq (WE INCLUDE THIS HERE BECAUSE IT DEPENDS ON moment_matching_update AND g_opt, THEMATICALLY THIS
+SHOULD NOT BE HERE)
+6. multlvl_two_step_g_acq (WE INCLUDE THIS HERE BECAUSE IT DEPENDS ON moment_matching_update AND g_opt_multi_lvl, THEMATICALLY THIS
 SHOULD NOT BE HERE)
 
 The module "Experiment_Framework" has functions which are used in conducting numerical experiments. These functions include:
 1. product_diff_list
-2. question_extractor
-3. enum_two_step
-4. enum_two_step_opt
-5. quantile_test_enum_data
-6. MSE_det_test 
-7. new_sequential_experiment
+2. multlvl_product_diff_list
+3. question_extractor
+4. multlvl_question_extractor
+5. enum_two_step
+6. multlvl_enum_two_step
+7. enum_two_step_opt
+8. quantile_test_enum_data
+9. one_step_sol_two_step_quantile
+10. multlvl_one_step_sol_two_step_quantile
+11. MSE_det_test 
+12. new_sequential_experiment (!!!THIS CODE NEEDS TO BE CHECKED IN DETAIL!!! PARTICULARLY DEALING WITH THE GUMBEL ERROR TERM)
 
 The module "Batch_Design_and_Rollout" has functions which are used in creating a batch design of questions with certain orthogonality conditions,
 as well as functions which are used in performing rollout on a question pair. Rollout is a non-myopic method often used in solving dynamic programming problems. 
@@ -37,3 +45,4 @@ These functions include:
 7. rollout
 8. monte_carlo_rollout
 9. rollout_with_batch_design_acquisition
+10. coordinate_exchange_acq
