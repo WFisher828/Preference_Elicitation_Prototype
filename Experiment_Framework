@@ -323,7 +323,60 @@ def quantile_test_enum_data(attr_num,prod_diff_list,rep_num,scale,location,mu_lo
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
 *************************************************************************************************************************************************************
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
-
+#February 27, 2023. This function is used to check the one-step optimal solution's quantile as ranked against
+#all of the two-step feasible solutions (two-step) function values. We enumerate all of the possible solution's two-step
+#acquisition value, and see where the one-step optimal solution lies within this list.
+def one_step_sol_two_step_quantile(attr_num,prod_diff_list,rep_num,scale,location,mu_log_coeff,Sig_log_coeff):
+    #attr_num: the number of attributes the products have.
+    
+    #prod_diff_list: A list of product pairs we will enumerate over for each replication. 
+    #Products should have same number of attributes as attr_num.
+    
+    #rep_num: the number of replications we wish to make
+    
+    #scale: A parameter to increase/decrease the determinant of the random covariance matrix
+    
+    #location: A parameter to increase/decrease the magnitude of the partworth estimator.
+    
+    #mu_log_coeff and Sig_log_coeff: linear coefficients that are used in the optimization problem
+    
+    #create lists to store quantile data for one-step under two-step solution
+    quant_val_one_step = [0.0]*rep_num
+    one_step_sol_val_list = [0.0]*rep_num
+    
+    enum_df = pd.DataFrame()
+    
+    #Collect quantile data
+    for i in range(0, rep_num):
+        #prior parameters
+        mu_0_rand = location*rng.uniform(low = -1.0, high = 1.0, size = attr_num) #use rng, this is Unif(-1.0,1.0)
+        print(mu_0_rand)
+        Sig_0_rand = scale*sklearn.datasets.make_spd_matrix(attr_num) #NEED SEED FOR THIS
+        
+        #Solve the one-step optimization problem's optimal solution
+        [x_0, y_0] = g_opt(mu_0_rand,Sig_0_rand,mu_log_coeff,Sig_log_coeff)[1:]
+        
+        #Save the two-step acquisition function values of the one-step solution
+        one_step_sol_val = two_step_g_acq(mu_0_rand, Sig_0_rand,mu_log_coeff,Sig_log_coeff, x_0, y_0)[0]
+        
+        one_step_sol_val_list[i] = one_step_sol_val
+        
+        #Create a list storing all of the enumerated values of all question pairs evaluated
+        #under two-step acquisition function. Return a dataframe containing enumeration if needed.
+        enum_data = enum_two_step(mu_0_rand,Sig_0_rand,mu_log_coeff,Sig_log_coeff,prod_diff_list)[0]
+        enum_df['Trial: %s'%(str(i))] = enum_data
+        
+        #Calculate the quantile values of one-step and two-step. The best performing solution will have a quant
+        #value of 1.0 and the worst performing solution will have a quant value of 0.
+        enum_data_len = len(enum_data)
+        one_step_quantile = [1 for x in enum_data if x >= one_step_sol_val]
+        quant_val_one_step[i] = sum(one_step_quantile)/enum_data_len
+        print('iteration: ' +str(i))
+     
+    return [quant_val_one_step, enum_df, one_step_sol_val_list]
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+*************************************************************************************************************************************************************
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
 #This function is used to compare one-step and two-step in a sequential fashion. We start the experiment with
 #some prior information (expectation and covariance matrix), and sample a number of individuals
 #(partworth vectors) from this prior. We then run the two questionnaires (one-step and two-step) on all of the individuals,
