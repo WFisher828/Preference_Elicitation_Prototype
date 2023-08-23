@@ -229,10 +229,12 @@ def multlvl_enum_two_step(mu_vec, Sig_mat, mu_log_coeff, Sig_log_coeff, multlvl_
 #A function which returns the best performing solution and their two-step acquisition values, along with the corresponding
 #first stage and two second stage questions.
 #We use the exact two-step g function. Used for experimenting and gaining insight into two-step acquisition.
+#NOTE: THIS CAN BE USED FOR MULTILEVEL CASE.
 
 def enum_two_step_opt(two_step_values,first_second_stage_question):
     #two_step_values: A list of two_step values. This should come from the function enum_two_step
-    
+    #first_second_stage_question: A list of all first stage and their corresponding two second stage 
+    #question counterparts. This comes from the functions enum_two_step or multlvl_enum_two_step 
     
     #Find min index of the two-step enumeration. Use these values to return the optimal two-step value,
     #along with their corresponding questions.
