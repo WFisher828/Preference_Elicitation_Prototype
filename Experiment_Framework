@@ -78,7 +78,34 @@ def product_diff_list(n):
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
 *************************************************************************************************************************************************************
 --------------------------------------------------------------------------------------------------------------------------------------------------------------
+#Define a set that has all the differences between quantitative multi-level products. For simplicity, we assume that
+#the number of levels are the same among all attributes
 
+def multlvl_product_diff_list(n,num_lvl):
+    #n: the number of attributes of the products
+    #num_lvl: this is a integer declaring the number of levels for each attribute. For example, n=3, num_lvl=4 denotes
+    #three attributes with 4 quantitative levels each. Each attribute in this case
+    #would be encode with levels 0, 1, 2, and 3.
+    
+    ml_p_d_l = list(itertools.product(range(-(num_lvl-1),num_lvl), repeat = n))
+    
+    #Return the index of the tuple with all 0s.
+    zero_index = ml_p_d_l.index(tuple([0]*n))
+    
+    #Note that at this point, product_diff_list contains some redundant information. Due to
+    #the symmetry of the one-step and two-step acquisition function in terms of question mean, question pairs such as 
+    #(-1,-1,-1,...,-1) and (1,1,1,...,1) (i.e. negative multiples) will evaluate as the same under the one-step and two-step
+    #acquisition functions. Due to the structure of product_diff_list, we can remove every question pair before and including
+    #the question pair with all zero entries in order to remove this redundant information.
+    for i in range(0,zero_index + 1):
+        ml_p_d_l.pop(0)
+    
+    ml_p_d_l = [np.array(a) for a in ml_p_d_l]
+
+    return ml_p_d_l
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+*************************************************************************************************************************************************************
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
 #Given a trinary vector of 0, 1, and -1, find two binary products whose difference is the trinary vector.
 def question_extractor(prod):
     #prod: This is a trinary vector of 0, 1, and -1 that represents the difference between two products, which
