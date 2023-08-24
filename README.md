@@ -1,5 +1,5 @@
 # Preference_Elicitation
-A collection of code for the Preference_Elicitation Project
+A collection of code for the Preference_Elicitation Project (!!!NEED TO WORK ON DEPENDENCIES BETWEEN FILES!!!)
 
 The module "Baseline_Functions_Definitions" includes functions that the questionnaire procedure and experimental framework
 are based off of. The functions include:
